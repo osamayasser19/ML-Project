@@ -1,12 +1,29 @@
 import cv2
 import joblib
 import numpy as np
+import os
 from skimage.feature import hog, local_binary_pattern
+from tensorflow.keras.applications.resnet50 import ResNet50, preprocess_input
+from tensorflow.keras.preprocessing import image
 
 
-knn_model = joblib.load('./knn_best_model.sav')
-scaler = joblib.load('./scaler.save')
 
+SVM_model = joblib.load(r'I:\4th year\first term\ML\Project\ML-Project\svm_waste_model.pkl')
+scaler = joblib.load(r'I:\4th year\first term\ML\Project\ML-Project\scaler.pkl')
+
+dataset_dir = r'I:\4th year\first term\ML\Project\ML-Project\dataset'
+class_folders = sorted([d for d in os.listdir(dataset_dir) if os.path.isdir(os.path.join(dataset_dir, d))])
+class_names = class_folders
+
+cnn_extractor = ResNet50(weights='imagenet', include_top=False, pooling='avg')
+
+def get_cnn_features(frame):
+    img = cv2.resize(frame, (224, 224))
+    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    x = image.img_to_array(img)
+    x = np.expand_dims(x, axis=0)
+    x = preprocess_input(x)
+    return cnn_extractor.predict(x, verbose=0)[0]
 
 def extract_hog_features(image):
     gray_image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
@@ -37,8 +54,10 @@ def get_single_frame_features(frame):
     hog_feat = extract_hog_features(image)
     color_hist_feat = color_histogram(image)
     lbp_feat = lbp_features(image)
+    #handcrafted_feat = np.hstack([hog_feat, color_feat, lbp_feat])
 
-    combined_features = np.hstack([hog_feat, color_hist_feat, lbp_feat])
+    cnn_feat = get_cnn_features(frame)
+    combined_features = np.hstack([cnn_feat])
     
     combined_features=np.array(combined_features)
     
@@ -46,24 +65,14 @@ def get_single_frame_features(frame):
     
     return scaled_features
 
-def predict_with_unknown(model, sample, threshold=0.9):
-   
-    distances, indices = model.kneighbors(sample)
-    distances_min = np.min(distances)
-    distances_max = np.max(distances)
-    denominator = distances_max - distances_min
+def predict_with_unknown_svm(model, sample, threshold=0.6):
+    probs = model.predict_proba(sample)[0]
+    max_prob = np.max(probs)
 
-    if denominator == 0:
-        scaled_distances = np.zeros_like(distances)
+    if max_prob < threshold:
+        return "Unknown"
     else:
-        scaled_distances = (distances - distances_min) / denominator
-        
-    avg_distance = np.mean(scaled_distances)
-    
-    if avg_distance > threshold:
-        return "Unknown"   
-    else:
-        return model.predict(sample)[0]
+        return np.argmax(probs)
 
 
 cap = cv2.VideoCapture(0)
@@ -79,9 +88,12 @@ while True:
     
     features = features.reshape(1, -1)
 
-    prediction = predict_with_unknown(knn_model,features)
+    prediction = predict_with_unknown_svm(SVM_model, features)
     
-    label = prediction
+    try:
+        label = class_names[int(prediction)]
+    except Exception:
+        label = prediction
 
     display_text = f"{label}"
     cv2.putText(frame,display_text , (20, 50), 
