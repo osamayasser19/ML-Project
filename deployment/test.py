@@ -7,9 +7,9 @@ from tensorflow.keras.applications.resnet50 import ResNet50, preprocess_input
 from tensorflow.keras.preprocessing import image
 
 # ---------- Load models and scaler ----------
-SVM_model = joblib.load(r'I:\4th year\first term\ML\Project\ML-Project\svm_waste_model.pkl')
-scaler = joblib.load(r'I:\4th year\first term\ML\Project\ML-Project\scaler.pkl')
-dataset_dir = r'I:\4th year\first term\ML\Project\ML-Project\dataset'
+SVM_model = joblib.load('svm_waste_model.pkl')
+scaler = joblib.load('scaler.pkl')
+dataset_dir = 'C:/Users/Osama/Desktop/IS Material 4th Level/Machine Learning/dataset'
 class_names = sorted([d for d in os.listdir(dataset_dir) if os.path.isdir(os.path.join(dataset_dir, d))])
 
 cnn_extractor = ResNet50(weights='imagenet', include_top=False, pooling='avg')
@@ -42,18 +42,36 @@ def color_histogram(frame):
     hist = cv2.normalize(hist,hist).flatten()
     return hist
 
-def get_features(frame):
-    frame_small = cv2.resize(frame, (128,128))
-    hog_feat = extract_hog_features(frame_small)
-    lbp_feat = lbp_features(frame_small)
-    color_feat = color_histogram(frame_small)
+# def get_features(frame):
+#     frame_small = cv2.resize(frame, (128,128))
+#     hog_feat = extract_hog_features(frame_small)
+#     lbp_feat = lbp_features(frame_small)
+#     color_feat = color_histogram(frame_small)
     
-    cnn_feat = get_cnn_features(frame)
+#     cnn_feat = get_cnn_features(frame)
     
-    scaled = scaler.transform(cnn_feat.reshape(1,-1))
-    return scaled
+#     scaled = scaler.transform(cnn_feat.reshape(1,-1))
+#     return scaled
 
-def predict_with_unknown_svm(model, sample, threshold=0.6):
+def get_single_frame_features(frame):
+
+    image = cv2.resize(frame, (128, 128))
+    
+    hog_feat = extract_hog_features(image)
+    color_hist_feat = color_histogram(image)
+    lbp_feat = lbp_features(image)
+    #handcrafted_feat = np.hstack([hog_feat, color_feat, lbp_feat])
+
+    cnn_feat = get_cnn_features(frame)
+    combined_features = np.hstack([cnn_feat])
+    
+    combined_features=np.array(combined_features)
+    
+    scaled_features = scaler.transform(combined_features.reshape(1, -1))
+    
+    return scaled_features
+
+def predict_with_unknown_svm(model, sample, threshold=0.3):
     probs = model.predict_proba(sample)[0]
     max_prob = np.max(probs)
 
@@ -75,7 +93,8 @@ def test_folder(test_folder):
             print(f"Skipping invalid image: {file_name}")
             continue
         
-        features = get_features(frame)
+        features = get_single_frame_features(frame)
+        features = features.reshape(1, -1)
         pred = predict_with_unknown_svm(SVM_model, features)
         
         if pred != "Unknown":
@@ -95,4 +114,4 @@ def test_folder(test_folder):
 
 # ---------- Run ----------
 if __name__ == "__main__":
-    test_folder(r'I:\4th year\first term\ML\Project\ML-Project\test_images')
+    test_folder('./test_images')
