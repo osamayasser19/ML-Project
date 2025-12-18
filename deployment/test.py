@@ -40,17 +40,30 @@ def get_single_frame_features(frame):
 
     combined_features = np.hstack([hog_feat, color_hist_feat, lbp_feat])
     
+    combined_features=np.array(combined_features)
     
     scaled_features = scaler.transform(combined_features.reshape(1, -1))
     
     return scaled_features
-  
 
+def predict_with_unknown(model, sample, threshold=0.9):
+   
+    distances, indices = model.kneighbors(sample)
+    distances_min = np.min(distances)
+    distances_max = np.max(distances)
+    denominator = distances_max - distances_min
 
-class_map = {
-    0: "Glass", 1: "Paper", 2: "Cardboard", 
-    3: "Plastic", 4: "Metal", 5: "Trash", 6: "Unknown"
-}
+    if denominator == 0:
+        scaled_distances = np.zeros_like(distances)
+    else:
+        scaled_distances = (distances - distances_min) / denominator
+        
+    avg_distance = np.mean(scaled_distances)
+    
+    if avg_distance > threshold:
+        return "Unknown"   
+    else:
+        return model.predict(sample)[0]
 
 
 cap = cv2.VideoCapture(0)
@@ -66,12 +79,9 @@ while True:
     
     features = features.reshape(1, -1)
 
-    prediction = knn_model.predict(features)[0]
+    prediction = predict_with_unknown(knn_model,features)
     
-    print(prediction)
-    label = class_map.get(prediction,'Unknown')
-
-      
+    label = prediction
 
     display_text = f"{label}"
     cv2.putText(frame,display_text , (20, 50), 
