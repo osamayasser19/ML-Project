@@ -8,8 +8,8 @@ from tensorflow.keras.preprocessing import image
 
 
 
-SVM_model = joblib.load(r'I:\4th year\first term\ML\Project\ML-Project\svm_waste_model.pkl')
-scaler = joblib.load(r'I:\4th year\first term\ML\Project\ML-Project\scaler.pkl')
+SVM_model = joblib.load(r'I:\4th year\first term\ML\Project\ML-Project\svm_waste_model.pkl') #svm model path
+scaler = joblib.load(r'I:\4th year\first term\ML\Project\ML-Project\scaler.pkl')#scaler path
 
 dataset_dir = r'I:\4th year\first term\ML\Project\ML-Project\dataset'
 class_folders = sorted([d for d in os.listdir(dataset_dir) if os.path.isdir(os.path.join(dataset_dir, d))])
@@ -65,7 +65,7 @@ def get_single_frame_features(frame):
     
     return scaled_features
 
-def predict_with_unknown_svm(model, sample, threshold=0.6):
+def predict_with_unknown_svm(model, sample, threshold=0.3):
     probs = model.predict_proba(sample)[0]
     max_prob = np.max(probs)
 

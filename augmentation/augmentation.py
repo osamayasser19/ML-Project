@@ -56,4 +56,4 @@ def  AugmentData(datasetMainFolder):
       combineImages(fullClassPath,os.path.join(fullClassPath,'output'))
     
 
-AugmentData('./dataset')
+AugmentData(r'I:\4th year\first term\ML\Project\ML-Project\dataset')
